@@ -1,0 +1,32 @@
+{
+  "name": "valbern-wms-orchestrator",
+  "version": "0.0.0",
+  "private": true,
+  "description": "WMS + multichannel e-commerce orchestrator (eMAG / Trendyol / Medusa). See CLAUDE.md.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "tf:fmt": "terraform -chdir=infra fmt -recursive",
+    "tf:validate": "terraform -chdir=infra validate",
+    "tf:plan": "terraform -chdir=infra plan"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.620.0",
+    "@aws-sdk/client-sqs": "^3.620.0",
+    "@aws-sdk/client-ssm": "^3.620.0",
+    "@aws-sdk/lib-dynamodb": "^3.620.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.140",
+    "@types/node": "^20.14.0",
+    "esbuild": "^0.23.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
