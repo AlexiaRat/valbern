@@ -10,6 +10,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
     "test": "vitest run",
     "test:watch": "vitest",
     "tf:fmt": "terraform -chdir=infra fmt -recursive",

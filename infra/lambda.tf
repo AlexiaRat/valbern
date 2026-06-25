@@ -81,9 +81,19 @@ locals {
 
     # --- async workers (SQS) ---
     "worker-order" = {
-      sqs_source  = "order"
-      core_rw     = true
-      idempotency = true
+      sqs_source    = "order"
+      core_rw       = true
+      idempotency   = true
+      secret_params = ["partner/emag", "partner/trendyol", "partner/medusa"]
+      env = {
+        # Needed to ack the channel after reserving (flag-gated; off until the adapter is implemented).
+        ADAPTER_EMAG            = "false"
+        ADAPTER_TRENDYOL        = "false"
+        ADAPTER_MEDUSA          = "false"
+        PARTNER_SECRET_EMAG     = aws_ssm_parameter.secret["partner/emag"].name
+        PARTNER_SECRET_TRENDYOL = aws_ssm_parameter.secret["partner/trendyol"].name
+        PARTNER_SECRET_MEDUSA   = aws_ssm_parameter.secret["partner/medusa"].name
+      }
     }
     "worker-invoice" = {
       sqs_source    = "invoice"
@@ -108,6 +118,21 @@ locals {
       core_rw       = true
       secret_params = ["partner/emag", "partner/trendyol", "partner/medusa"]
       env = {
+        PARTNER_SECRET_EMAG     = aws_ssm_parameter.secret["partner/emag"].name
+        PARTNER_SECRET_TRENDYOL = aws_ssm_parameter.secret["partner/trendyol"].name
+        PARTNER_SECRET_MEDUSA   = aws_ssm_parameter.secret["partner/medusa"].name
+      }
+    }
+
+    # --- DynamoDB Streams consumer (immediate low-stock availability push, §4.5) ---
+    "stream-stock" = {
+      core_read     = true
+      stream_source = true
+      secret_params = ["partner/emag", "partner/trendyol", "partner/medusa"]
+      env = {
+        ADAPTER_EMAG            = "false"
+        ADAPTER_TRENDYOL        = "false"
+        ADAPTER_MEDUSA          = "false"
         PARTNER_SECRET_EMAG     = aws_ssm_parameter.secret["partner/emag"].name
         PARTNER_SECRET_TRENDYOL = aws_ssm_parameter.secret["partner/trendyol"].name
         PARTNER_SECRET_MEDUSA   = aws_ssm_parameter.secret["partner/medusa"].name
@@ -158,4 +183,24 @@ resource "aws_lambda_event_source_mapping" "worker" {
   batch_size                         = 10
   maximum_batching_window_in_seconds = 5
   function_response_types            = ["ReportBatchItemFailures"]
+}
+
+# DynamoDB Streams → stock consumer. Filtered to StockLevel items (SK = STOCK#*) so order/line/
+# reservation writes don't trigger it. bisect-on-error isolates a poison record from its batch.
+resource "aws_lambda_event_source_mapping" "stream" {
+  for_each = { for k, v in local.functions : k => v if try(v.stream_source, false) }
+
+  event_source_arn                   = aws_dynamodb_table.core.stream_arn
+  function_name                      = aws_lambda_function.fn[each.key].arn
+  starting_position                  = "LATEST"
+  batch_size                         = 100
+  maximum_batching_window_in_seconds = 5
+  bisect_batch_on_function_error     = true
+  function_response_types            = ["ReportBatchItemFailures"]
+
+  filter_criteria {
+    filter {
+      pattern = jsonencode({ dynamodb = { Keys = { SK = { S = [{ prefix = "STOCK#" }] } } } })
+    }
+  }
 }

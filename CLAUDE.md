@@ -106,6 +106,7 @@ UpdateItem  core { PK: SKU#<sku>, SK: STOCK#<location> }
 - `ConditionalCheckFailed` ⇒ no stock ⇒ mark line `oversold`, do NOT ship, alarm. You caught it instead of shipping blind.
 - **Release:** on `ship` → decrement `on_hand` AND `reserved`; on `cancel` → decrement `reserved` only.
 - Mandatory test: two parallel reservations on the last unit → exactly one succeeds.
+- **Implementation note (DynamoDB):** ConditionExpressions can't do arithmetic, so the gate is implemented against a stored `available` counter (INVARIANT: `available == on_hand − reserved`) — condition `available >= :q`, and every stock mutation maintains the invariant atomically. The conceptual rule above is unchanged; don't revert it to `(on_hand − reserved) >= :q` in a ConditionExpression — DynamoDB rejects it.
 
 ---
 

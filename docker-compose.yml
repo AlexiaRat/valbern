@@ -1,0 +1,9 @@
+# DynamoDB Local for the reservation tests (§12). In-memory, shared-db, no AWS account needed.
+#   docker compose up -d   (npm run db:up)
+services:
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: valbern-ddb-local
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
+    ports:
+      - "8000:8000"

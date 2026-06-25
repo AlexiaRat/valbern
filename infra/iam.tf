@@ -44,8 +44,26 @@ data "aws_iam_policy_document" "lambda" {
     for_each = try(each.value.core_rw, false) ? [1] : []
     content {
       sid       = "CoreReadWrite"
-      actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query"]
+      actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:TransactWriteItems"]
       resources = [aws_dynamodb_table.core.arn, "${aws_dynamodb_table.core.arn}/index/*"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = try(each.value.core_read, false) ? [1] : []
+    content {
+      sid       = "CoreReadOnly"
+      actions   = ["dynamodb:GetItem", "dynamodb:Query", "dynamodb:BatchGetItem"]
+      resources = [aws_dynamodb_table.core.arn, "${aws_dynamodb_table.core.arn}/index/*"]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = try(each.value.stream_source, false) ? [1] : []
+    content {
+      sid       = "CoreStreamConsume"
+      actions   = ["dynamodb:GetRecords", "dynamodb:GetShardIterator", "dynamodb:DescribeStream", "dynamodb:ListStreams"]
+      resources = [aws_dynamodb_table.core.stream_arn]
     }
   }
 

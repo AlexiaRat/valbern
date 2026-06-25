@@ -4,6 +4,9 @@
 export type Channel = "emag" | "trendyol" | "medusa";
 export const CHANNELS: readonly Channel[] = ["emag", "trendyol", "medusa"] as const;
 
+// Single default warehouse location for P1 (multi-location allocation is a later phase).
+export const DEFAULT_LOCATION = "MAIN";
+
 // ---- lifecycle state machines (§4) ----
 
 export type StockUnitStatus =
@@ -68,8 +71,12 @@ export interface StockLevelItem {
   SK: string; // STOCK#<location>
   sku: string;
   location: string;
-  on_hand: number; // raw — NEVER leaves the system (§3.1)
+  on_hand: number; // raw — NEVER leaves the system (§4.1)
   reserved: number;
+  // Stored reservable counter, INVARIANT: available == on_hand - reserved. It exists because
+  // DynamoDB ConditionExpressions can't do arithmetic, so the §7 gate compares `available >= qty`
+  // directly. Every stock mutation maintains it atomically (see src/stock/reserve.ts).
+  available: number;
   updatedAt: string;
 }
 
