@@ -36,3 +36,15 @@ output "secret_parameter_names" {
   description = "SSM SecureString parameter names to populate out-of-band (values start as placeholders)."
   value       = { for k, p in aws_ssm_parameter.secret : k => p.name }
 }
+
+output "alarms_topic_arn" {
+  value = aws_sns_topic.alarms.arn
+}
+
+output "dashboard_name" {
+  value = aws_cloudwatch_dashboard.main.dashboard_name
+}
+
+output "canary_names" {
+  value = { for k, c in aws_synthetics_canary.channel : k => c.name }
+}

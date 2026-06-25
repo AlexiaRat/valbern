@@ -6,6 +6,8 @@
 import type { Channel } from "../domain/types.js";
 import { getChannelAdapter } from "../adapters/index.js";
 import { isEnabled, type AdapterFlag } from "../adapters/flags.js";
+import { withChannelCall } from "../adapters/call.js";
+import { recordOkSync } from "../sync/state.js";
 
 const FLAG_BY_CHANNEL: Record<Channel, AdapterFlag> = {
   emag: "ADAPTER_EMAG",
@@ -24,9 +26,14 @@ export async function runPoll(channel: Channel): Promise<{ channel: Channel; fet
   }
 
   const since = new Date(Date.now() - LOOKBACK_MS);
-  const orders = await getChannelAdapter(channel).fetchOrders(since);
+  const orders = await withChannelCall(channel, "fetchOrders", () =>
+    getChannelAdapter(channel).fetchOrders(since),
+  );
 
-  // P1 will enqueue each order to the `order` SQS queue for the ingestion Lambda.
+  // A completed poll is a successful sync — stamp the dead-man's-switch clock (§4.7).
+  await recordOkSync(channel);
+
+  // P1+ enqueues each fetched order to the `order` SQS queue for the ingestion worker.
   console.log(JSON.stringify({ msg: "poll complete", channel, fetched: orders.length, since }));
   return { channel, fetched: orders.length };
 }

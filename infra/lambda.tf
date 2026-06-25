@@ -54,29 +54,47 @@ locals {
     }
 
     # --- scheduled polls (EventBridge Scheduler) ---
+    # core_rw: poll writes ChannelSyncState.last_ok_sync on success (dead-man's switch, §4.7).
     "poll-emag" = {
-      send_queues   = ["order"]
-      secret_params = ["partner/emag"]
+      send_queues         = ["order"]
+      secret_params       = ["partner/emag"]
+      core_rw             = true
+      schedule_expression = var.poll_schedule
       env = {
         ADAPTER_EMAG        = "false"
         PARTNER_SECRET_EMAG = aws_ssm_parameter.secret["partner/emag"].name
       }
     }
     "poll-trendyol" = {
-      send_queues   = ["order"]
-      secret_params = ["partner/trendyol"]
+      send_queues         = ["order"]
+      secret_params       = ["partner/trendyol"]
+      core_rw             = true
+      schedule_expression = var.poll_schedule
       env = {
         ADAPTER_TRENDYOL        = "false"
         PARTNER_SECRET_TRENDYOL = aws_ssm_parameter.secret["partner/trendyol"].name
       }
     }
     "poll-medusa" = {
-      send_queues   = ["order"]
-      secret_params = ["partner/medusa"]
+      send_queues         = ["order"]
+      secret_params       = ["partner/medusa"]
+      core_rw             = true
+      schedule_expression = var.poll_schedule
       env = {
         ADAPTER_MEDUSA        = "false"
         PARTNER_SECRET_MEDUSA = aws_ssm_parameter.secret["partner/medusa"].name
       }
+    }
+
+    # --- monitoring (§4.7 / P2) ---
+    "sync-age-check" = {
+      core_read           = true
+      schedule_expression = var.sync_age_check_schedule
+    }
+    "slack-notify" = {
+      # SNS-triggered (not scheduled). Reads only the Slack webhook URL.
+      secret_params = ["webhook/slack"]
+      env           = { SLACK_WEBHOOK_SECRET = aws_ssm_parameter.secret["webhook/slack"].name }
     }
 
     # --- async workers (SQS) ---

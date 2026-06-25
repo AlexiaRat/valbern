@@ -7,6 +7,7 @@ import { CHANNELS, type Channel } from "../domain/types.js";
 import { getProduct, getStockLevel, availableFrom } from "./available.js";
 import { getChannelAdapter } from "../adapters/index.js";
 import { isEnabled, type AdapterFlag } from "../adapters/flags.js";
+import { withChannelCall } from "../adapters/call.js";
 import { emitLowStock } from "../metrics/emf.js";
 
 const FLAG_BY_CHANNEL: Record<Channel, AdapterFlag> = {
@@ -36,5 +37,7 @@ async function pushOne(channel: Channel, sku: string, available: number): Promis
     console.log(JSON.stringify({ msg: "push skipped: adapter disabled", channel, sku, available }));
     return;
   }
-  await getChannelAdapter(channel).pushAvailable(sku, available);
+  await withChannelCall(channel, "pushAvailable", () =>
+    getChannelAdapter(channel).pushAvailable(sku, available),
+  );
 }

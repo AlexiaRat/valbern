@@ -52,3 +52,37 @@ export function emitLowStock(channel: string, sku: string, available: number): v
     properties: { sku },
   });
 }
+
+// --- §4.7 monitoring metrics ---
+
+// Age of the last OK sync per channel — the dead-man's-switch signal (alarm when > threshold).
+export function emitSyncAge(channel: string, ageSeconds: number): void {
+  emitMetric({
+    namespace: "Valbern/Monitoring",
+    metricName: "SyncAgeSeconds",
+    value: ageSeconds,
+    unit: "Seconds",
+    dimensions: { Channel: channel },
+  });
+}
+
+// One external API call per channel (success or failure); error count drives the error-rate alarm.
+export function emitApiCall(channel: string, op: string, ok: boolean): void {
+  emitMetric({
+    namespace: "Valbern/Monitoring",
+    metricName: "ChannelApiCalls",
+    value: 1,
+    dimensions: { Channel: channel },
+    properties: { op, ok },
+  });
+}
+
+export function emitApiError(channel: string, op: string, error: unknown): void {
+  emitMetric({
+    namespace: "Valbern/Monitoring",
+    metricName: "ChannelApiErrors",
+    value: 1,
+    dimensions: { Channel: channel },
+    properties: { op, error: error instanceof Error ? error.message : String(error) },
+  });
+}

@@ -37,8 +37,20 @@ Read it before changing anything.
   pushes available-to-sell to all channels (low-stock danger handled in seconds, not by the cron).
 - **Mandatory §12 concurrency test** passes against DynamoDB Local (8/8).
 
-Verified: `tsc --noEmit` clean, 15 handlers bundled, tests green (DDB Local), `terraform validate`
-passes. Not yet deployed.
+**P2 — Monitoring (complete).** Detect *silence*, not just errors:
+
+- **Dead-man's switch** (§4.7): every successful poll writes `ChannelSyncState.last_ok_sync`; a
+  scheduled `sync-age-check` emits `SyncAgeSeconds` per channel (never-synced ⇒ sentinel), and an
+  alarm fires when age > 15 min — even if the channel is silent rather than erroring.
+- **Alarms** (all → SNS → Slack): DLQ depth > 0 (per queue), per-channel API error spike,
+  per-channel sync-age, and per-channel canary failure.
+- **CloudWatch Synthetics canaries** (one per channel) probe the partner auth endpoint **from
+  outside** — this is what would have caught the Trendyol WAF/allowlist block (it failed silently).
+- **SNS → Slack** via a `slack-notify` Lambda posting to a Slack Incoming Webhook (URL in SSM).
+- **CloudWatch dashboard**: sync-age, API errors, DLQ depth, and canary success per channel.
+
+Verified: `tsc --noEmit` clean, 17 handlers bundled, dead-man's-switch test green, `terraform
+validate` passes. Not yet deployed. (The P1 reservation suite needs DynamoDB Local — see below.)
 
 ### Running the tests
 
@@ -63,16 +75,19 @@ src/
     courier/         #   Innoship (single + bulk AWB)
   stock/             # reservation primitive, release, computeAvailable, availability push
   ingestion/         # order message normalize + ingest (reserve every line)
-  metrics/           # CloudWatch EMF (oversell / low-stock signals)
+  sync/              # per-channel last_ok_sync state + dead-man's-switch age (§4.7)
+  metrics/           # CloudWatch EMF (oversell / low-stock / sync-age / api-error signals)
   db/                # shared DynamoDB document client (DDB_ENDPOINT-aware for tests)
   http/              # edge runner, idempotency claim, webhook signature, order-id extraction
   secrets/           # cached SSM SecureString fetch (KMS-decrypted)
   sqs/               # enqueue helper
   worker/            # shared SQS worker skeleton
-  handlers/          # Lambda entrypoints (webhooks, ops, health, polls, workers, stream)
-tests/               # vitest — reservation/concurrency against DynamoDB Local
+  handlers/          # Lambda entrypoints (webhooks, ops, health, polls, workers, stream, monitoring)
+canary/              # CloudWatch Synthetics canary script (channel auth probe)
+tests/               # vitest — reservation/concurrency (DDB Local) + dead-man's-switch (pure)
 scripts/build.mjs    # esbuild → dist/<handler>/index.js (one bundle per Lambda)
-infra/               # Terraform (tables, queues, KMS, secrets, API GW, scheduler, lambdas, IAM)
+infra/               # Terraform (tables, queues, KMS, secrets, API GW, scheduler, lambdas, IAM,
+                     #            SNS, alarms, Synthetics canaries, dashboard)
 ```
 
 ## Develop

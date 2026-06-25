@@ -17,6 +17,8 @@ locals {
     "partner/medusa",
     "partner/smartbill",
     "partner/innoship",
+    # Slack Incoming Webhook URL for alarm delivery (§2 SNS→Slack).
+    "webhook/slack",
   ]
 }
 
